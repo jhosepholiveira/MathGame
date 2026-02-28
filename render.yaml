@@ -16,7 +16,6 @@ services:
   - type: web
     name: mathgame-frontend
     env: static
-    plan: free
     rootDir: frontend
     buildCommand: npm ci && npm run build
     staticPublishPath: dist
