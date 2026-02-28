@@ -1,0 +1,41 @@
+@import "tailwindcss";
+
+:root {
+  --brand-blue: #0b4fc2;
+  --brand-blue-strong: #003a97;
+  --brand-cyan: #6fd8ff;
+  --brand-dark: #06173f;
+  --brand-deeper: #040c24;
+
+  font-family: "Poppins", "Montserrat", "Segoe UI", sans-serif;
+  line-height: 1.5;
+  font-weight: 400;
+
+  color-scheme: dark;
+  background-color: var(--brand-deeper);
+  color: #f8fafc;
+
+  font-synthesis: none;
+  text-rendering: optimizeLegibility;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+body {
+  margin: 0;
+  min-height: 100vh;
+  display: flex;
+  flex-direction: column;
+  background:
+    radial-gradient(circle at 12% 8%, color-mix(in srgb, var(--brand-cyan) 20%, transparent), transparent 30%),
+    radial-gradient(circle at 88% 6%, color-mix(in srgb, var(--brand-blue) 26%, transparent), transparent 35%),
+    linear-gradient(180deg, var(--brand-dark), var(--brand-deeper));
+}
+
+#root {
+  min-height: 100vh;
+}
+
+.brand-title-glow {
+  text-shadow: 0 0 30px rgba(111, 216, 255, 0.25);
+}

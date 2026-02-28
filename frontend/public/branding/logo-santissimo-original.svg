@@ -1,0 +1,21 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1200 360" role="img" aria-labelledby="title desc">
+  <title id="title">Logo do Colégio Santíssimo Senhor</title>
+  <desc id="desc">Símbolo de livro com pessoa e sol estilizados ao lado do nome Colégio Santíssimo Senhor.</desc>
+  <g fill="none" stroke="#0155B6" stroke-linecap="round" stroke-linejoin="round">
+    <rect x="12" y="18" width="300" height="324" rx="24" stroke-width="14" />
+    <path d="M162 68A77 77 0 0 1 240 146" stroke-width="12" />
+    <path d="M162 68A77 77 0 0 0 84 146" stroke-width="12" />
+    <path d="M162 38v18M112 52l10 15M212 52l-10 15M84 98l16 8M240 98l-16 8M72 146h18M252 146h18" stroke-width="10" />
+    <path d="M162 96c-29 0-53 24-53 53v68" stroke-width="12" />
+    <path d="M162 96c29 0 53 24 53 53v68" stroke-width="12" />
+    <path d="M125 230c-27 9-49 29-61 56h196c-12-27-34-47-61-56" stroke-width="12" />
+    <path d="M62 286c37-14 63-14 100 0 37-14 63-14 100 0" stroke-width="10" />
+    <path d="M120 340h84" stroke-width="12" />
+  </g>
+
+  <g fill="#003A97" font-family="'Poppins', 'Montserrat', 'Segoe UI', sans-serif" font-weight="800">
+    <text x="380" y="116" font-size="72">colégio</text>
+    <text x="380" y="208" font-size="94">Santíssimo</text>
+    <text x="380" y="302" font-size="94">Senhor</text>
+  </g>
+</svg>
