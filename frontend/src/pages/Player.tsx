@@ -41,6 +41,10 @@ export default function Player() {
             alert(err);
             navigate('/');
         });
+        socket.on('connect_error', () => {
+            alert('Não foi possível conectar ao servidor. Tente novamente em alguns segundos.');
+            navigate('/');
+        });
 
         socket.on('game_started', () => setGameState('PLAYING'));
         socket.on('game_ended', () => setGameState('FINISHED'));
@@ -65,6 +69,7 @@ export default function Player() {
         return () => {
             socket.off('joined');
             socket.off('error');
+            socket.off('connect_error');
             socket.off('game_started');
             socket.off('game_ended');
             socket.off('new_question');

@@ -22,7 +22,10 @@ services:
     autoDeploy: true
     envVars:
       - key: VITE_BACKEND_URL
-        value: https://mathgame-backend.onrender.com
+        fromService:
+          type: web
+          name: mathgame-backend
+          envVarKey: RENDER_EXTERNAL_URL
     routes:
       - type: rewrite
         source: /*

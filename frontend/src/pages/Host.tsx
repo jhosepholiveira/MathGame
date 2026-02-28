@@ -103,11 +103,15 @@ export default function Host() {
         socket.on('room_created', (data: RoomState) => setRoom(data));
         socket.on('room_state_update', (data: RoomState) => setRoom(data));
         socket.on('error', (err: string) => setError(err));
+        socket.on('connect_error', () => {
+            setError('Não foi possível conectar ao servidor. Confira se o backend está online.');
+        });
 
         return () => {
             socket.off('room_created');
             socket.off('room_state_update');
             socket.off('error');
+            socket.off('connect_error');
         };
     }, []);
 
