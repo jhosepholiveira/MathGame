@@ -2,7 +2,6 @@ services:
   - type: web
     name: mathgame-backend
     env: node
-    plan: free
     rootDir: backend
     buildCommand: npm ci && npm run build
     startCommand: npm run start
