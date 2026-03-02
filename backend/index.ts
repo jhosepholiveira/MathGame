@@ -266,8 +266,27 @@ io.on('connection', (socket: Socket) => {
     });
 
     socket.on('start_game', (roomId) => {
+        if (typeof roomId !== 'string' || roomId.trim() === '') {
+            socket.emit('error', 'Sala inválida para iniciar.');
+            return;
+        }
+
         const room = rooms.get(roomId);
-        if (!room || room.hostId !== socket.id || room.state !== 'LOBBY') return;
+        if (!room) {
+            socket.emit('error', 'Sala não encontrada. Recarregue e crie uma nova sala.');
+            return;
+        }
+
+        if (room.hostId !== socket.id) {
+            socket.emit('error', 'Apenas o host da sala pode iniciar o jogo.');
+            return;
+        }
+
+        if (room.state === 'PLAYING') {
+            socket.emit('error', 'O jogo já está em andamento.');
+            return;
+        }
+
         if (!canStartGame(room)) {
             socket.emit('error', 'É necessário no mínimo 1 jogador em cada time para iniciar.');
             return;

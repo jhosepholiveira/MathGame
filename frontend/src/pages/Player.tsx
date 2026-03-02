@@ -1,4 +1,4 @@
-import { useEffect, useState, useRef } from 'react';
+import { useEffect, useState } from 'react';
 import { useSearchParams, useNavigate } from 'react-router-dom';
 import { socket } from '../utils/socket';
 import { motion, AnimatePresence } from 'framer-motion';
@@ -26,7 +26,6 @@ export default function Player() {
     const [question, setQuestion] = useState<Question | null>(null);
     const [answerInput, setAnswerInput] = useState('');
     const [feedback, setFeedback] = useState<'correct' | 'wrong' | null>(null);
-    const inputRef = useRef<HTMLInputElement>(null);
 
     useEffect(() => {
         if (!roomId || !playerName) {
@@ -83,7 +82,6 @@ export default function Player() {
             setQuestion(q);
             setAnswerInput('');
             setFeedback(null);
-            setTimeout(() => inputRef.current?.focus(), 10);
         });
 
         socket.on('answer_result', (isCorrect: boolean) => {
@@ -112,11 +110,13 @@ export default function Player() {
     const submitAnswer = (e?: React.FormEvent | React.MouseEvent) => {
         e?.preventDefault();
         if (!answerInput || !question) return;
+        const numericAnswer = parseInt(answerInput, 10);
+        if (Number.isNaN(numericAnswer)) return;
 
         socket.emit('submit_answer', {
             roomId,
             questionId: question.id,
-            answer: parseInt(answerInput),
+            answer: numericAnswer,
         });
     };
 
@@ -182,11 +182,15 @@ export default function Player() {
 
                         <form onSubmit={submitAnswer} className="relative">
                             <input
-                                ref={inputRef}
-                                type="number"
+                                type="text"
                                 value={answerInput}
-                                onChange={(e) => setAnswerInput(e.target.value)}
-                                autoFocus
+                                readOnly
+                                inputMode="none"
+                                autoComplete="off"
+                                autoCapitalize="off"
+                                autoCorrect="off"
+                                spellCheck={false}
+                                onFocus={(e) => e.currentTarget.blur()}
                                 className={`w-full rounded-2xl border-2 bg-slate-900 px-4 py-2.5 text-2xl md:text-3xl font-mono text-center shadow-lg focus:outline-none transition-colors
                   ${feedback === 'wrong' ? 'border-red-500 text-red-400 bg-red-950/20' :
                                         feedback === 'correct' ? 'border-green-500 text-green-400 bg-green-950/20' :
@@ -226,8 +230,15 @@ export default function Player() {
                                     type="button"
                                     onClick={() => {
                                         if (k === '⌫') setAnswerInput(prev => prev.slice(0, -1));
-                                        else setAnswerInput(prev => prev + String(k));
-                                        inputRef.current?.focus();
+                                        else if (k === '-') {
+                                            setAnswerInput((prev) => {
+                                                if (prev === '') return '-';
+                                                if (prev === '-') return '';
+                                                return prev.startsWith('-') ? prev.slice(1) : `-${prev}`;
+                                            });
+                                        } else {
+                                            setAnswerInput(prev => prev + String(k));
+                                        }
                                     }}
                                     className="rounded-xl bg-slate-800 py-2.5 text-lg md:text-xl font-bold font-mono shadow-sm transition-colors hover:bg-slate-700 active:bg-slate-600"
                                 >

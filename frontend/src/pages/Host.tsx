@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { QRCodeSVG } from 'qrcode.react';
 import { socket } from '../utils/socket';
@@ -45,6 +45,13 @@ function toggleOperation(current: string[], operation: string) {
     }
 
     return [...current, operation];
+}
+
+function sameOperations(a: string[], b: string[]) {
+    if (a.length !== b.length) return false;
+    const sortedA = [...a].sort().join('|');
+    const sortedB = [...b].sort().join('|');
+    return sortedA === sortedB;
 }
 
 function Puller({ side, index, label, isPlaying }: PullerProps) {
@@ -113,18 +120,22 @@ export default function Host() {
     const [rematchOperations, setRematchOperations] = useState<string[]>(['+']);
     const navigate = useNavigate();
     const [error, setError] = useState('');
+    const previousRoomStateRef = useRef<RoomState['state'] | null>(null);
 
     useEffect(() => {
         socket.connect();
 
         const handleRoomUpdate = (data: RoomState) => {
             setRoom(data);
+            setError('');
 
-            // Sync defaults only in lobby to avoid unnecessary updates during the live timer.
-            if (data.state === 'LOBBY') {
+            // Sync filters when we enter lobby (from create/finish), without overwriting in-lobby edits.
+            if (data.state === 'LOBBY' && previousRoomStateRef.current !== 'LOBBY') {
                 setRematchDifficulty(data.difficulty);
                 setRematchOperations(data.operations);
             }
+
+            previousRoomStateRef.current = data.state;
         };
 
         socket.on('room_created', handleRoomUpdate);
@@ -156,7 +167,7 @@ export default function Host() {
     const startGame = () => {
         if (!room) return;
         setError('');
-        socket.emit('start_game', room?.id);
+        socket.emit('start_game', room.id);
     };
 
     const restartWithSameFilters = () => {
@@ -263,6 +274,9 @@ export default function Host() {
     const joinUrl = `${currentUrl}#/play?room=${room.id}`;
     const hasMinimumPlayers = room.blueTeam.length > 0 && room.redTeam.length > 0;
     const operationsPreview = room.operations.join(' ');
+    const hasPendingFilterChanges =
+        room.difficulty !== rematchDifficulty ||
+        !sameOperations(room.operations, rematchOperations);
 
     if (room.state === 'LOBBY') {
         return (
@@ -300,6 +314,57 @@ export default function Host() {
                 )}
                 <div className="mb-3 rounded-xl border border-cyan-500/35 bg-cyan-500/10 px-3 py-2 text-sm font-medium text-cyan-100">
                     Filtros atuais: Nível {room.difficulty} | Operações {operationsPreview}
+                </div>
+                <div className="mb-3 rounded-xl border border-slate-700 bg-slate-900/70 p-3 md:p-4">
+                    <p className="mb-2 text-xs font-black uppercase tracking-wider text-slate-400">Ajustar Filtros Antes de Iniciar</p>
+
+                    <div className="mb-3">
+                        <p className="mb-2 text-xs font-semibold text-slate-300">Operações</p>
+                        <div className="grid grid-cols-4 gap-2">
+                            {OPERATION_OPTIONS.map(({ op, label }) => (
+                                <button
+                                    key={`lobby-filter-${op}`}
+                                    type="button"
+                                    onClick={() => setRematchOperations((current) => toggleOperation(current, op))}
+                                    title={label}
+                                    className={`rounded-lg border py-1.5 text-lg font-bold transition ${rematchOperations.includes(op)
+                                        ? 'border-cyan-300 bg-cyan-500 text-slate-950'
+                                        : 'border-slate-600 bg-slate-900 text-slate-300 hover:bg-slate-700'
+                                        }`}
+                                >
+                                    {op}
+                                </button>
+                            ))}
+                        </div>
+                    </div>
+
+                    <div className="mb-3">
+                        <p className="mb-2 text-xs font-semibold text-slate-300">Nível (dígitos)</p>
+                        <div className="grid grid-cols-3 gap-2">
+                            {[1, 2, 3].map((level) => (
+                                <button
+                                    key={`lobby-level-${level}`}
+                                    type="button"
+                                    onClick={() => setRematchDifficulty(level)}
+                                    className={`rounded-lg border px-3 py-1.5 text-sm font-bold transition ${rematchDifficulty === level
+                                        ? 'border-cyan-300 bg-cyan-500 text-slate-950'
+                                        : 'border-slate-600 bg-slate-900 text-slate-300 hover:bg-slate-700'
+                                        }`}
+                                >
+                                    Nível {level}
+                                </button>
+                            ))}
+                        </div>
+                    </div>
+
+                    <button
+                        type="button"
+                        onClick={restartWithCustomFilters}
+                        disabled={rematchOperations.length === 0 || !hasPendingFilterChanges}
+                        className="w-full rounded-xl border border-cyan-400/70 bg-transparent px-4 py-2.5 text-xs font-black uppercase tracking-wide text-cyan-200 transition hover:bg-cyan-500/15 disabled:border-slate-700 disabled:text-slate-500 md:text-sm"
+                    >
+                        Salvar filtros para próxima partida
+                    </button>
                 </div>
 
                 <div className="grid min-h-0 flex-1 gap-4 md:grid-cols-[minmax(290px,1fr)_2fr] md:gap-5">
