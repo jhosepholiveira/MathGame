@@ -87,6 +87,18 @@ function resetRound(room: GameRoom) {
     });
 }
 
+function resetToLobby(room: GameRoom) {
+    if (room.timerInterval) {
+        clearInterval(room.timerInterval);
+        delete room.timerInterval;
+    }
+
+    room.state = 'LOBBY';
+    room.score = 0;
+    room.timeRemaining = GAME_DURATION_SECONDS;
+    room.currentQuestions.clear();
+}
+
 function finishGame(room: GameRoom) {
     if (room.timerInterval) {
         clearInterval(room.timerInterval);
@@ -264,7 +276,7 @@ io.on('connection', (socket: Socket) => {
         startGame(room);
     });
 
-    socket.on('restart_game', (payload: { roomId: string; difficulty?: number; operations?: string[] }) => {
+    socket.on('restart_game', (payload: { roomId: string; difficulty?: number; operations?: string[]; autoStart?: boolean }) => {
         const room = rooms.get(payload?.roomId);
         if (!room || room.hostId !== socket.id) return;
         if (room.state !== 'FINISHED' && room.state !== 'LOBBY') return;
@@ -280,6 +292,12 @@ io.on('connection', (socket: Socket) => {
                 return;
             }
             room.operations = nextOperations;
+        }
+
+        if (payload?.autoStart === false) {
+            resetToLobby(room);
+            io.to(room.id).emit('room_state_update', serializeRoom(room));
+            return;
         }
 
         if (!canStartGame(room)) {

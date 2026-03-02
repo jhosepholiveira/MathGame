@@ -178,6 +178,7 @@ export default function Host() {
             roomId: room.id,
             difficulty: rematchDifficulty,
             operations: rematchOperations,
+            autoStart: false,
         });
     };
 
@@ -261,6 +262,7 @@ export default function Host() {
     const currentUrl = window.location.origin + window.location.pathname;
     const joinUrl = `${currentUrl}#/play?room=${room.id}`;
     const hasMinimumPlayers = room.blueTeam.length > 0 && room.redTeam.length > 0;
+    const operationsPreview = room.operations.join(' ');
 
     if (room.state === 'LOBBY') {
         return (
@@ -296,6 +298,9 @@ export default function Host() {
                         Para iniciar, é obrigatório ter pelo menos 1 jogador no Time Azul e 1 no Time Vermelho.
                     </p>
                 )}
+                <div className="mb-3 rounded-xl border border-cyan-500/35 bg-cyan-500/10 px-3 py-2 text-sm font-medium text-cyan-100">
+                    Filtros atuais: Nível {room.difficulty} | Operações {operationsPreview}
+                </div>
 
                 <div className="grid min-h-0 flex-1 gap-4 md:grid-cols-[minmax(290px,1fr)_2fr] md:gap-5">
                     {/* QR Code Column */}
@@ -600,15 +605,15 @@ export default function Host() {
                                     </button>
                                     <button
                                         onClick={restartWithCustomFilters}
-                                        disabled={!hasMinimumPlayers || rematchOperations.length === 0}
+                                        disabled={rematchOperations.length === 0}
                                         className="mx-auto flex w-full items-center justify-center gap-2 rounded-xl border border-cyan-400/70 bg-transparent px-5 py-2.5 text-xs font-black uppercase tracking-wide text-cyan-200 transition hover:bg-cyan-500/15 disabled:border-slate-700 disabled:text-slate-500 md:text-sm"
                                     >
-                                        Jogar com novos filtros
+                                        Aplicar novos filtros e voltar ao lobby
                                     </button>
                                 </div>
                                 {!hasMinimumPlayers && (
                                     <p className="mt-3 text-sm text-amber-300">
-                                        Para reiniciar, mantenha ao menos 1 jogador em cada time.
+                                        Revanche imediata exige 1 jogador em cada time. Com novos filtros, você volta ao lobby para revisar.
                                     </p>
                                 )}
                             </div>
