@@ -412,11 +412,17 @@ export default function Host() {
     const elapsedSeconds = Math.max(0, 60 - room.timeRemaining);
 
     return (
-        <div className="flex h-[100dvh] flex-col overflow-hidden p-3 md:p-4">
-            <header className="relative z-20 mb-3 flex items-start justify-between gap-3 md:mb-4">
+        <div className="flex h-[100dvh] min-h-0 flex-col overflow-hidden p-2.5 md:p-4">
+            <header
+                className={`relative z-20 flex items-start justify-between gap-3 ${room.state === 'FINISHED' ? 'mb-2 md:mb-3' : 'mb-3 md:mb-4'
+                    }`}
+            >
                 <div className="flex flex-col gap-2">
-                    <SchoolBrand mode="white-on-dark" compact />
-                    <h1 className="flex flex-col text-lg font-black md:text-2xl">
+                    <SchoolBrand mode="white-on-dark" compact={room.state !== 'FINISHED'} tiny={room.state === 'FINISHED'} />
+                    <h1
+                        className={`flex flex-col font-black ${room.state === 'FINISHED' ? 'text-base md:text-xl' : 'text-lg md:text-2xl'
+                            }`}
+                    >
                         Arena do Cabo de Guerra Matemático
                         <span className="font-mono text-xs text-slate-400 md:text-sm">Sala: {room.id}</span>
                     </h1>
@@ -514,96 +520,98 @@ export default function Host() {
                     <motion.div
                         initial={{ opacity: 0, scale: 0.95 }}
                         animate={{ opacity: 1, scale: 1 }}
-                        className="absolute inset-0 z-30 flex items-center justify-center bg-slate-950/75 p-4 backdrop-blur-sm"
+                        className="absolute inset-0 z-30 overflow-y-auto bg-slate-950/75 p-3 backdrop-blur-sm md:p-4"
                     >
-                        <div className="w-full max-w-md rounded-3xl border border-slate-600 bg-slate-900/95 p-8 text-center shadow-2xl">
-                            <SchoolBrand mode="white-on-dark" compact className="mb-4 mx-auto w-fit" />
-                            <div className="mx-auto mb-4 w-fit rounded-full border border-amber-300/30 bg-amber-500/10 p-4 text-amber-300">
-                                <Trophy size={44} />
-                            </div>
-                            <h2 className="mb-2 text-4xl font-black">
-                                {room.score < 0 ? <span className="text-blue-400">AZUL VENCEU!</span> : room.score > 0 ? <span className="text-red-400">VERMELHO VENCEU!</span> : <span className="text-slate-300">EMPATE!</span>}
-                            </h2>
-                            <p className="mb-6 text-slate-300">
-                                {winner} dominou a corda.
-                            </p>
-
-                            <div className="mb-7 grid grid-cols-2 gap-3 text-left">
-                                <div className="rounded-xl border border-slate-700 bg-slate-800/80 p-3">
-                                    <p className="text-xs font-black uppercase tracking-wider text-slate-400">Puxada Final</p>
-                                    <p className="text-2xl font-black text-slate-100">{Math.abs(room.score)}</p>
+                        <div className="flex min-h-full items-center justify-center py-1">
+                            <div className="w-full max-w-lg max-h-[calc(100dvh-1rem)] overflow-y-auto rounded-3xl border border-slate-600 bg-slate-900/95 p-5 text-center shadow-2xl md:p-6">
+                                <SchoolBrand mode="white-on-dark" tiny className="mb-3 mx-auto w-fit" />
+                                <div className="mx-auto mb-3 w-fit rounded-full border border-amber-300/30 bg-amber-500/10 p-3 text-amber-300">
+                                    <Trophy size={36} />
                                 </div>
-                                <div className="rounded-xl border border-slate-700 bg-slate-800/80 p-3">
-                                    <p className="text-xs font-black uppercase tracking-wider text-slate-400">Tempo</p>
-                                    <p className="text-2xl font-black text-slate-100">{elapsedSeconds}s</p>
-                                </div>
-                            </div>
-
-                            <div className="mb-4 space-y-3 rounded-2xl border border-slate-700 bg-slate-800/65 p-4 text-left">
-                                <p className="text-xs font-black uppercase tracking-wider text-slate-400">Filtros da Próxima Rodada</p>
-
-                                <div>
-                                    <p className="mb-2 text-xs font-semibold text-slate-300">Operações</p>
-                                    <div className="grid grid-cols-4 gap-2">
-                                        {OPERATION_OPTIONS.map(({ op, label }) => (
-                                            <button
-                                                key={`rematch-${op}`}
-                                                type="button"
-                                                onClick={() => setRematchOperations((current) => toggleOperation(current, op))}
-                                                title={label}
-                                                className={`rounded-lg border py-2 text-lg font-bold transition ${rematchOperations.includes(op)
-                                                    ? 'border-cyan-300 bg-cyan-500 text-slate-950'
-                                                    : 'border-slate-600 bg-slate-900 text-slate-300 hover:bg-slate-700'
-                                                    }`}
-                                            >
-                                                {op}
-                                            </button>
-                                        ))}
-                                    </div>
-                                </div>
-
-                                <div>
-                                    <p className="mb-2 text-xs font-semibold text-slate-300">Nível (dígitos)</p>
-                                    <div className="grid grid-cols-3 gap-2">
-                                        {[1, 2, 3].map((level) => (
-                                            <button
-                                                key={`rematch-level-${level}`}
-                                                type="button"
-                                                onClick={() => setRematchDifficulty(level)}
-                                                className={`rounded-lg border px-3 py-2 text-sm font-bold transition ${rematchDifficulty === level
-                                                    ? 'border-cyan-300 bg-cyan-500 text-slate-950'
-                                                    : 'border-slate-600 bg-slate-900 text-slate-300 hover:bg-slate-700'
-                                                    }`}
-                                            >
-                                                Nível {level}
-                                            </button>
-                                        ))}
-                                    </div>
-                                </div>
-                            </div>
-
-                            <div className="space-y-2">
-                                <button
-                                    onClick={restartWithSameFilters}
-                                    disabled={!hasMinimumPlayers}
-                                    className="mx-auto flex w-full items-center justify-center gap-2 rounded-xl bg-cyan-500 px-6 py-3 text-lg font-black text-slate-950 shadow-lg shadow-cyan-500/30 transition hover:bg-cyan-400 disabled:bg-slate-700 disabled:text-slate-400 disabled:shadow-none"
-                                >
-                                    <RotateCcw size={18} />
-                                    Revanche (mesmos filtros)
-                                </button>
-                                <button
-                                    onClick={restartWithCustomFilters}
-                                    disabled={!hasMinimumPlayers || rematchOperations.length === 0}
-                                    className="mx-auto flex w-full items-center justify-center gap-2 rounded-xl border border-cyan-400/70 bg-transparent px-6 py-3 text-sm font-black uppercase tracking-wide text-cyan-200 transition hover:bg-cyan-500/15 disabled:border-slate-700 disabled:text-slate-500"
-                                >
-                                    Jogar com novos filtros
-                                </button>
-                            </div>
-                            {!hasMinimumPlayers && (
-                                <p className="mt-3 text-sm text-amber-300">
-                                    Para reiniciar, mantenha ao menos 1 jogador em cada time.
+                                <h2 className="mb-1 text-3xl font-black md:text-4xl">
+                                    {room.score < 0 ? <span className="text-blue-400">AZUL VENCEU!</span> : room.score > 0 ? <span className="text-red-400">VERMELHO VENCEU!</span> : <span className="text-slate-300">EMPATE!</span>}
+                                </h2>
+                                <p className="mb-4 text-slate-300">
+                                    {winner} dominou a corda.
                                 </p>
-                            )}
+
+                                <div className="mb-4 grid grid-cols-2 gap-2.5 text-left">
+                                    <div className="rounded-xl border border-slate-700 bg-slate-800/80 p-3">
+                                        <p className="text-xs font-black uppercase tracking-wider text-slate-400">Puxada Final</p>
+                                        <p className="text-2xl font-black text-slate-100">{Math.abs(room.score)}</p>
+                                    </div>
+                                    <div className="rounded-xl border border-slate-700 bg-slate-800/80 p-3">
+                                        <p className="text-xs font-black uppercase tracking-wider text-slate-400">Tempo</p>
+                                        <p className="text-2xl font-black text-slate-100">{elapsedSeconds}s</p>
+                                    </div>
+                                </div>
+
+                                <div className="mb-3 space-y-3 rounded-2xl border border-slate-700 bg-slate-800/65 p-3 text-left md:p-4">
+                                    <p className="text-xs font-black uppercase tracking-wider text-slate-400">Filtros da Próxima Rodada</p>
+
+                                    <div>
+                                        <p className="mb-2 text-xs font-semibold text-slate-300">Operações</p>
+                                        <div className="grid grid-cols-4 gap-2">
+                                            {OPERATION_OPTIONS.map(({ op, label }) => (
+                                                <button
+                                                    key={`rematch-${op}`}
+                                                    type="button"
+                                                    onClick={() => setRematchOperations((current) => toggleOperation(current, op))}
+                                                    title={label}
+                                                    className={`rounded-lg border py-1.5 text-lg font-bold transition ${rematchOperations.includes(op)
+                                                        ? 'border-cyan-300 bg-cyan-500 text-slate-950'
+                                                        : 'border-slate-600 bg-slate-900 text-slate-300 hover:bg-slate-700'
+                                                        }`}
+                                                >
+                                                    {op}
+                                                </button>
+                                            ))}
+                                        </div>
+                                    </div>
+
+                                    <div>
+                                        <p className="mb-2 text-xs font-semibold text-slate-300">Nível (dígitos)</p>
+                                        <div className="grid grid-cols-3 gap-2">
+                                            {[1, 2, 3].map((level) => (
+                                                <button
+                                                    key={`rematch-level-${level}`}
+                                                    type="button"
+                                                    onClick={() => setRematchDifficulty(level)}
+                                                    className={`rounded-lg border px-3 py-1.5 text-sm font-bold transition ${rematchDifficulty === level
+                                                        ? 'border-cyan-300 bg-cyan-500 text-slate-950'
+                                                        : 'border-slate-600 bg-slate-900 text-slate-300 hover:bg-slate-700'
+                                                        }`}
+                                                >
+                                                    Nível {level}
+                                                </button>
+                                            ))}
+                                        </div>
+                                    </div>
+                                </div>
+
+                                <div className="space-y-2">
+                                    <button
+                                        onClick={restartWithSameFilters}
+                                        disabled={!hasMinimumPlayers}
+                                        className="mx-auto flex w-full items-center justify-center gap-2 rounded-xl bg-cyan-500 px-5 py-2.5 text-base font-black text-slate-950 shadow-lg shadow-cyan-500/30 transition hover:bg-cyan-400 disabled:bg-slate-700 disabled:text-slate-400 disabled:shadow-none"
+                                    >
+                                        <RotateCcw size={18} />
+                                        Revanche (mesmos filtros)
+                                    </button>
+                                    <button
+                                        onClick={restartWithCustomFilters}
+                                        disabled={!hasMinimumPlayers || rematchOperations.length === 0}
+                                        className="mx-auto flex w-full items-center justify-center gap-2 rounded-xl border border-cyan-400/70 bg-transparent px-5 py-2.5 text-xs font-black uppercase tracking-wide text-cyan-200 transition hover:bg-cyan-500/15 disabled:border-slate-700 disabled:text-slate-500 md:text-sm"
+                                    >
+                                        Jogar com novos filtros
+                                    </button>
+                                </div>
+                                {!hasMinimumPlayers && (
+                                    <p className="mt-3 text-sm text-amber-300">
+                                        Para reiniciar, mantenha ao menos 1 jogador em cada time.
+                                    </p>
+                                )}
+                            </div>
                         </div>
                     </motion.div>
                 )}

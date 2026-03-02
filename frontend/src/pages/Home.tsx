@@ -8,6 +8,7 @@ export default function Home() {
     const navigate = useNavigate();
     const [pin, setPin] = useState('');
     const [name, setName] = useState('');
+    const appVersion = __APP_VERSION__;
 
     const handleJoin = (e: React.FormEvent) => {
         e.preventDefault();
@@ -17,7 +18,7 @@ export default function Home() {
     };
 
     return (
-        <div className="h-[100dvh] overflow-hidden px-4 py-3 md:px-7 md:py-5">
+        <div className="h-[100dvh] overflow-y-auto px-4 py-3 md:px-7 md:py-5">
             <div className="mx-auto grid h-full w-full max-w-6xl items-center gap-5 lg:grid-cols-[1.05fr_0.95fr] lg:gap-8">
                 <motion.section
                     initial={{ opacity: 0, x: -18 }}
@@ -107,6 +108,10 @@ export default function Home() {
                                 Criar Novo Jogo
                             </button>
                         </div>
+
+                        <p className="mt-4 text-center text-xs font-semibold uppercase tracking-wider text-slate-400/90">
+                            Versão {appVersion}
+                        </p>
                     </div>
                 </motion.section>
             </div>
