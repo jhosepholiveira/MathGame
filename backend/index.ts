@@ -54,6 +54,13 @@ const GAME_DURATION_SECONDS = 60;
 const SCORE_LIMIT = 100;
 const ALLOWED_OPERATIONS = new Set(['+', '-', '*', '/']);
 
+function normalizeRoomId(value: unknown) {
+    if (typeof value !== 'string') return null;
+    const normalized = value.trim().toUpperCase();
+    if (!normalized) return null;
+    return normalized;
+}
+
 function normalizeDifficulty(value: unknown) {
     const parsed = typeof value === 'number' ? value : Number(value);
     if (!Number.isFinite(parsed)) return 1;
@@ -231,7 +238,10 @@ io.on('connection', (socket: Socket) => {
     });
 
     socket.on('join_room', ({ roomId, playerName }) => {
-        const room = rooms.get(roomId);
+        const normalizedRoomId = normalizeRoomId(roomId);
+        if (!normalizedRoomId) return socket.emit('error', 'PIN da sala inválido');
+
+        const room = rooms.get(normalizedRoomId);
         if (!room) return socket.emit('error', 'Sala não encontrada');
         if (room.state === 'PLAYING') return socket.emit('error', 'O jogo já foi iniciado');
 
@@ -239,9 +249,9 @@ io.on('connection', (socket: Socket) => {
         const existingRedPlayer = room.redTeam.find(p => p.socketId === socket.id);
         if (existingBluePlayer || existingRedPlayer) {
             const assignedTeam = existingBluePlayer ? 'blue' : 'red';
-            socket.join(roomId);
+            socket.join(normalizedRoomId);
             socket.emit('joined', {
-                roomId,
+                roomId: normalizedRoomId,
                 team: assignedTeam,
                 playerName: existingBluePlayer?.name || existingRedPlayer?.name,
                 roomState: room.state,
@@ -260,18 +270,19 @@ io.on('connection', (socket: Socket) => {
             assignedTeam = 'red';
         }
 
-        socket.join(roomId);
-        socket.emit('joined', { roomId, team: assignedTeam, playerName, roomState: room.state });
+        socket.join(normalizedRoomId);
+        socket.emit('joined', { roomId: normalizedRoomId, team: assignedTeam, playerName, roomState: room.state });
         io.to(room.id).emit('room_state_update', serializeRoom(room));
     });
 
     socket.on('start_game', (roomId) => {
-        if (typeof roomId !== 'string' || roomId.trim() === '') {
+        const normalizedRoomId = normalizeRoomId(roomId);
+        if (!normalizedRoomId) {
             socket.emit('error', 'Sala inválida para iniciar.');
             return;
         }
 
-        const room = rooms.get(roomId);
+        const room = rooms.get(normalizedRoomId);
         if (!room) {
             socket.emit('error', 'Sala não encontrada. Recarregue e crie uma nova sala.');
             return;
@@ -296,7 +307,13 @@ io.on('connection', (socket: Socket) => {
     });
 
     socket.on('restart_game', (payload: { roomId: string; difficulty?: number; operations?: string[]; autoStart?: boolean }) => {
-        const room = rooms.get(payload?.roomId);
+        const normalizedRoomId = normalizeRoomId(payload?.roomId);
+        if (!normalizedRoomId) {
+            socket.emit('error', 'Sala inválida para reiniciar.');
+            return;
+        }
+
+        const room = rooms.get(normalizedRoomId);
         if (!room || room.hostId !== socket.id) return;
         if (room.state !== 'FINISHED' && room.state !== 'LOBBY') return;
 
@@ -329,7 +346,10 @@ io.on('connection', (socket: Socket) => {
     });
 
     socket.on('submit_answer', ({ roomId, questionId, answer }) => {
-        const room = rooms.get(roomId);
+        const normalizedRoomId = normalizeRoomId(roomId);
+        if (!normalizedRoomId) return;
+
+        const room = rooms.get(normalizedRoomId);
         if (!room || room.state !== 'PLAYING') return;
 
         const currentQ = room.currentQuestions.get(socket.id);
@@ -341,7 +361,7 @@ io.on('connection', (socket: Socket) => {
                 // Update score
                 const isBlue = room.blueTeam.some(p => p.socketId === socket.id);
                 room.score += isBlue ? -5 : 5; // Blue pulls negative, Red pulls positive
-                io.to(roomId).emit('room_state_update', serializeRoom(room));
+                io.to(normalizedRoomId).emit('room_state_update', serializeRoom(room));
 
                 // Give new question
                 sendQuestionToPlayer(room, socket.id);

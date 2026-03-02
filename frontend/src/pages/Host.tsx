@@ -271,7 +271,7 @@ export default function Host() {
     }
 
     const currentUrl = window.location.origin + window.location.pathname;
-    const joinUrl = `${currentUrl}#/play?room=${room.id}`;
+    const joinUrl = `${currentUrl}#/?room=${room.id}`;
     const hasMinimumPlayers = room.blueTeam.length > 0 && room.redTeam.length > 0;
     const operationsPreview = room.operations.join(' ');
     const hasPendingFilterChanges =

@@ -1,4 +1,4 @@
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useSearchParams } from 'react-router-dom';
 import { motion } from 'framer-motion';
 import { Users, ArrowRight, Trophy, Clock3, Sparkles } from 'lucide-react';
 import { useState } from 'react';
@@ -6,14 +6,18 @@ import SchoolBrand from '../components/SchoolBrand';
 
 export default function Home() {
     const navigate = useNavigate();
+    const [searchParams] = useSearchParams();
+    const pinFromQuery = searchParams.get('room')?.trim().toUpperCase() ?? '';
     const [pin, setPin] = useState('');
     const [name, setName] = useState('');
     const appVersion = __APP_VERSION__;
 
     const handleJoin = (e: React.FormEvent) => {
         e.preventDefault();
-        if (pin.trim() && name.trim()) {
-            navigate(`/play?room=${pin}&name=${name}`);
+        const normalizedPin = (pin || pinFromQuery).trim().toUpperCase();
+        const normalizedName = name.trim();
+        if (normalizedPin && normalizedName) {
+            navigate(`/play?room=${encodeURIComponent(normalizedPin)}&name=${encodeURIComponent(normalizedName)}`);
         }
     };
 
@@ -75,7 +79,7 @@ export default function Home() {
                             <input
                                 type="text"
                                 placeholder="PIN da Sala"
-                                value={pin}
+                                value={pin || pinFromQuery}
                                 onChange={(e) => setPin(e.target.value.toUpperCase())}
                                 maxLength={6}
                                 className="w-full rounded-xl border border-slate-700 bg-slate-950 px-4 py-3 text-center text-lg font-mono tracking-widest uppercase transition-colors focus:border-sky-400 focus:outline-none focus:ring-1 focus:ring-sky-400"

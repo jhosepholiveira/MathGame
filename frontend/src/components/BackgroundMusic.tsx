@@ -16,6 +16,21 @@ export default function BackgroundMusic() {
     const [hasInteracted, setHasInteracted] = useState(false);
     const audioRef = useRef<HTMLAudioElement | null>(null);
 
+    const attemptPlay = useCallback(async () => {
+        const audio = audioRef.current;
+        if (!audio || isMuted) return false;
+
+        try {
+            audio.muted = false;
+            audio.volume = ACTIVE_VOLUME;
+            await audio.play();
+            return true;
+        } catch {
+            // Browser may block until a valid user gesture.
+            return false;
+        }
+    }, [isMuted]);
+
     useEffect(() => {
         const audio = audioRef.current;
         if (!audio) return;
@@ -24,64 +39,95 @@ export default function BackgroundMusic() {
         audio.muted = isMuted;
     }, [isMuted]);
 
-    const tryPlay = useCallback(async () => {
-        const audio = audioRef.current;
-        if (!audio || isMuted) return;
-        try {
-            await audio.play();
-        } catch {
-            // Browser blocked autoplay; next interaction will try again.
-        }
-    }, [isMuted]);
-
-    useEffect(() => {
-        const activateOnInteraction = () => {
-            setHasInteracted(true);
-            void tryPlay();
-            window.removeEventListener('pointerdown', activateOnInteraction);
-            window.removeEventListener('keydown', activateOnInteraction);
-        };
-
-        window.addEventListener('pointerdown', activateOnInteraction);
-        window.addEventListener('keydown', activateOnInteraction);
-
-        return () => {
-            window.removeEventListener('pointerdown', activateOnInteraction);
-            window.removeEventListener('keydown', activateOnInteraction);
-        };
-    }, [tryPlay]);
-
     useEffect(() => {
         try {
             localStorage.setItem(STORAGE_KEY, String(isMuted));
         } catch {
-            // Ignore storage errors (private mode / blocked storage).
+            // Ignore storage errors.
         }
     }, [isMuted]);
 
     useEffect(() => {
+        const handleGesture = () => {
+            setHasInteracted(true);
+            if (!isMuted) {
+                void attemptPlay();
+            }
+        };
+
+        window.addEventListener('pointerdown', handleGesture, { passive: true });
+        window.addEventListener('touchstart', handleGesture, { passive: true });
+        window.addEventListener('keydown', handleGesture);
+
+        return () => {
+            window.removeEventListener('pointerdown', handleGesture);
+            window.removeEventListener('touchstart', handleGesture);
+            window.removeEventListener('keydown', handleGesture);
+        };
+    }, [attemptPlay, isMuted]);
+
+    useEffect(() => {
+        const handleVisibility = () => {
+            if (!document.hidden && !isMuted && hasInteracted) {
+                void attemptPlay();
+            }
+        };
+
+        document.addEventListener('visibilitychange', handleVisibility);
+        return () => {
+            document.removeEventListener('visibilitychange', handleVisibility);
+        };
+    }, [attemptPlay, hasInteracted, isMuted]);
+
+    useEffect(() => {
         const audio = audioRef.current;
         if (!audio) return;
-        audio.muted = isMuted;
-        if (!isMuted && hasInteracted) {
-            void tryPlay();
-        }
+
         if (isMuted) {
+            audio.muted = true;
             audio.pause();
+            return;
         }
-    }, [isMuted, hasInteracted, tryPlay]);
+
+        audio.muted = false;
+        if (hasInteracted) {
+            void attemptPlay();
+        }
+    }, [attemptPlay, hasInteracted, isMuted]);
 
     const toggleMute = () => {
         const nextMuted = !isMuted;
+        setHasInteracted(true);
         setIsMuted(nextMuted);
-        if (!nextMuted && hasInteracted) {
-            void tryPlay();
+
+        const audio = audioRef.current;
+        if (!audio) return;
+
+        if (nextMuted) {
+            audio.muted = true;
+            audio.pause();
+            return;
         }
+
+        audio.muted = false;
+        audio.volume = ACTIVE_VOLUME;
+        void audio.play().catch(() => {
+            // If this immediate play fails, interaction listeners will retry.
+        });
     };
 
     return (
         <>
-            <audio ref={audioRef} src={soundtrackUrl} preload="auto" />
+            <audio
+                ref={audioRef}
+                src={soundtrackUrl}
+                preload="auto"
+                onCanPlay={() => {
+                    if (!isMuted && hasInteracted) {
+                        void attemptPlay();
+                    }
+                }}
+            />
             <button
                 type="button"
                 onClick={toggleMute}

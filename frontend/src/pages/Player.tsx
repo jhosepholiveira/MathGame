@@ -17,8 +17,8 @@ interface RoomStatePayload {
 
 export default function Player() {
     const [searchParams] = useSearchParams();
-    const roomId = searchParams.get('room');
-    const playerName = searchParams.get('name');
+    const roomId = searchParams.get('room')?.trim().toUpperCase() ?? null;
+    const playerName = searchParams.get('name')?.trim() ?? null;
     const navigate = useNavigate();
 
     const [team, setTeam] = useState<'blue' | 'red' | null>(null);
@@ -28,8 +28,12 @@ export default function Player() {
     const [feedback, setFeedback] = useState<'correct' | 'wrong' | null>(null);
 
     useEffect(() => {
-        if (!roomId || !playerName) {
+        if (!roomId) {
             navigate('/');
+            return;
+        }
+        if (!playerName) {
+            navigate(`/?room=${encodeURIComponent(roomId)}`);
             return;
         }
 
