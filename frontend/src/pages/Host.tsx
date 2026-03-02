@@ -32,6 +32,21 @@ interface PullerProps {
     isPlaying: boolean;
 }
 
+const OPERATION_OPTIONS = [
+    { op: '+', label: 'Adição' },
+    { op: '-', label: 'Subtração' },
+    { op: '*', label: 'Multiplicação' },
+    { op: '/', label: 'Divisão' },
+];
+
+function toggleOperation(current: string[], operation: string) {
+    if (current.includes(operation)) {
+        return current.filter((item) => item !== operation);
+    }
+
+    return [...current, operation];
+}
+
 function Puller({ side, index, label, isPlaying }: PullerProps) {
     const dir = side === 'blue' ? -1 : 1;
     const x = dir * (120 + index * 82);
@@ -94,22 +109,34 @@ export default function Host() {
     const [room, setRoom] = useState<RoomState | null>(null);
     const [difficulty, setDifficulty] = useState(1);
     const [operations, setOperations] = useState<string[]>(['+']);
+    const [rematchDifficulty, setRematchDifficulty] = useState(1);
+    const [rematchOperations, setRematchOperations] = useState<string[]>(['+']);
     const navigate = useNavigate();
     const [error, setError] = useState('');
 
     useEffect(() => {
         socket.connect();
 
-        socket.on('room_created', (data: RoomState) => setRoom(data));
-        socket.on('room_state_update', (data: RoomState) => setRoom(data));
+        const handleRoomUpdate = (data: RoomState) => {
+            setRoom(data);
+
+            // Sync defaults only in lobby to avoid unnecessary updates during the live timer.
+            if (data.state === 'LOBBY') {
+                setRematchDifficulty(data.difficulty);
+                setRematchOperations(data.operations);
+            }
+        };
+
+        socket.on('room_created', handleRoomUpdate);
+        socket.on('room_state_update', handleRoomUpdate);
         socket.on('error', (err: string) => setError(err));
         socket.on('connect_error', () => {
             setError('Não foi possível conectar ao servidor. Confira se o backend está online.');
         });
 
         return () => {
-            socket.off('room_created');
-            socket.off('room_state_update');
+            socket.off('room_created', handleRoomUpdate);
+            socket.off('room_state_update', handleRoomUpdate);
             socket.off('error');
             socket.off('connect_error');
         };
@@ -121,11 +148,37 @@ export default function Host() {
             return;
         }
         setError('');
+        setRematchDifficulty(difficulty);
+        setRematchOperations(operations);
         socket.emit('create_room', { difficulty, operations });
     };
 
     const startGame = () => {
+        if (!room) return;
+        setError('');
         socket.emit('start_game', room?.id);
+    };
+
+    const restartWithSameFilters = () => {
+        if (!room) return;
+        setError('');
+        socket.emit('restart_game', { roomId: room.id });
+    };
+
+    const restartWithCustomFilters = () => {
+        if (!room) return;
+
+        if (rematchOperations.length === 0) {
+            setError('Selecione pelo menos uma operação para a nova rodada.');
+            return;
+        }
+
+        setError('');
+        socket.emit('restart_game', {
+            roomId: room.id,
+            difficulty: rematchDifficulty,
+            operations: rematchOperations,
+        });
     };
 
     if (!room) {
@@ -157,25 +210,17 @@ export default function Host() {
                         <div>
                             <label className="block text-slate-400 font-medium mb-2">Operações Matemáticas</label>
                             <div className="grid grid-cols-4 gap-2">
-                                {[
-                                    { op: '+', label: 'Addition' },
-                                    { op: '-', label: 'Subtraction' },
-                                    { op: '*', label: 'Multiplication' },
-                                    { op: '/', label: 'Division' }
-                                ].map(({ op }) => (
+                                {OPERATION_OPTIONS.map(({ op, label }) => (
                                     <button
                                         key={op}
                                         onClick={() => {
-                                            if (operations.includes(op)) {
-                                                setOperations(operations.filter(o => o !== op));
-                                            } else {
-                                                setOperations([...operations, op]);
-                                            }
+                                            setOperations((current) => toggleOperation(current, op));
                                         }}
                                         className={`py-2.5 rounded-xl font-bold text-lg md:text-xl border transition-all ${operations.includes(op)
                                                 ? 'bg-blue-600 border-sky-300 shadow-[0_0_15px_rgba(56,189,248,0.45)] text-white'
                                                 : 'bg-slate-900 border-slate-700 text-slate-400 hover:bg-slate-800'
                                             }`}
+                                        title={label}
                                     >
                                         {op}
                                     </button>
@@ -215,6 +260,7 @@ export default function Host() {
 
     const currentUrl = window.location.origin + window.location.pathname;
     const joinUrl = `${currentUrl}#/play?room=${room.id}`;
+    const hasMinimumPlayers = room.blueTeam.length > 0 && room.redTeam.length > 0;
 
     if (room.state === 'LOBBY') {
         return (
@@ -234,12 +280,22 @@ export default function Host() {
                     </div>
                     <button
                         onClick={startGame}
-                        disabled={room.blueTeam.length === 0 && room.redTeam.length === 0}
+                        disabled={!hasMinimumPlayers}
                         className="bg-green-500 hover:bg-green-400 disabled:bg-slate-700 disabled:text-slate-400 text-white font-bold py-3 px-8 rounded-xl shadow-lg shadow-green-500/30 transition-all flex items-center gap-2"
                     >
                         Iniciar Jogo <Play size={20} fill="currentColor" />
                     </button>
                 </header>
+                {error && (
+                    <p className="mb-3 rounded-xl border border-red-500/35 bg-red-500/10 px-3 py-2 text-sm font-medium text-red-300">
+                        {error}
+                    </p>
+                )}
+                {!hasMinimumPlayers && (
+                    <p className="mb-3 rounded-xl border border-amber-500/35 bg-amber-500/10 px-3 py-2 text-sm font-medium text-amber-200">
+                        Para iniciar, é obrigatório ter pelo menos 1 jogador no Time Azul e 1 no Time Vermelho.
+                    </p>
+                )}
 
                 <div className="grid min-h-0 flex-1 gap-4 md:grid-cols-[minmax(290px,1fr)_2fr] md:gap-5">
                     {/* QR Code Column */}
@@ -382,6 +438,11 @@ export default function Host() {
                     </button>
                 )}
             </header>
+            {error && (
+                <p className="mb-3 rounded-xl border border-red-500/35 bg-red-500/10 px-3 py-2 text-sm font-medium text-red-300">
+                    {error}
+                </p>
+            )}
 
             <div className="relative min-h-0 flex-1 overflow-hidden rounded-[2rem] border border-slate-700/80 bg-gradient-to-b from-slate-900 via-slate-950 to-slate-950 shadow-2xl">
                 <div className="absolute inset-0">
@@ -478,13 +539,71 @@ export default function Host() {
                                 </div>
                             </div>
 
-                            <button
-                                onClick={() => window.location.reload()}
-                                className="mx-auto flex items-center gap-2 rounded-xl bg-cyan-500 px-6 py-3 text-lg font-black text-slate-950 shadow-lg shadow-cyan-500/30 transition hover:bg-cyan-400"
-                            >
-                                <RotateCcw size={18} />
-                                Jogar Novamente
-                            </button>
+                            <div className="mb-4 space-y-3 rounded-2xl border border-slate-700 bg-slate-800/65 p-4 text-left">
+                                <p className="text-xs font-black uppercase tracking-wider text-slate-400">Filtros da Próxima Rodada</p>
+
+                                <div>
+                                    <p className="mb-2 text-xs font-semibold text-slate-300">Operações</p>
+                                    <div className="grid grid-cols-4 gap-2">
+                                        {OPERATION_OPTIONS.map(({ op, label }) => (
+                                            <button
+                                                key={`rematch-${op}`}
+                                                type="button"
+                                                onClick={() => setRematchOperations((current) => toggleOperation(current, op))}
+                                                title={label}
+                                                className={`rounded-lg border py-2 text-lg font-bold transition ${rematchOperations.includes(op)
+                                                    ? 'border-cyan-300 bg-cyan-500 text-slate-950'
+                                                    : 'border-slate-600 bg-slate-900 text-slate-300 hover:bg-slate-700'
+                                                    }`}
+                                            >
+                                                {op}
+                                            </button>
+                                        ))}
+                                    </div>
+                                </div>
+
+                                <div>
+                                    <p className="mb-2 text-xs font-semibold text-slate-300">Nível (dígitos)</p>
+                                    <div className="grid grid-cols-3 gap-2">
+                                        {[1, 2, 3].map((level) => (
+                                            <button
+                                                key={`rematch-level-${level}`}
+                                                type="button"
+                                                onClick={() => setRematchDifficulty(level)}
+                                                className={`rounded-lg border px-3 py-2 text-sm font-bold transition ${rematchDifficulty === level
+                                                    ? 'border-cyan-300 bg-cyan-500 text-slate-950'
+                                                    : 'border-slate-600 bg-slate-900 text-slate-300 hover:bg-slate-700'
+                                                    }`}
+                                            >
+                                                Nível {level}
+                                            </button>
+                                        ))}
+                                    </div>
+                                </div>
+                            </div>
+
+                            <div className="space-y-2">
+                                <button
+                                    onClick={restartWithSameFilters}
+                                    disabled={!hasMinimumPlayers}
+                                    className="mx-auto flex w-full items-center justify-center gap-2 rounded-xl bg-cyan-500 px-6 py-3 text-lg font-black text-slate-950 shadow-lg shadow-cyan-500/30 transition hover:bg-cyan-400 disabled:bg-slate-700 disabled:text-slate-400 disabled:shadow-none"
+                                >
+                                    <RotateCcw size={18} />
+                                    Revanche (mesmos filtros)
+                                </button>
+                                <button
+                                    onClick={restartWithCustomFilters}
+                                    disabled={!hasMinimumPlayers || rematchOperations.length === 0}
+                                    className="mx-auto flex w-full items-center justify-center gap-2 rounded-xl border border-cyan-400/70 bg-transparent px-6 py-3 text-sm font-black uppercase tracking-wide text-cyan-200 transition hover:bg-cyan-500/15 disabled:border-slate-700 disabled:text-slate-500"
+                                >
+                                    Jogar com novos filtros
+                                </button>
+                            </div>
+                            {!hasMinimumPlayers && (
+                                <p className="mt-3 text-sm text-amber-300">
+                                    Para reiniciar, mantenha ao menos 1 jogador em cada time.
+                                </p>
+                            )}
                         </div>
                     </motion.div>
                 )}

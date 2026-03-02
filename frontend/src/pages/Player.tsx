@@ -11,6 +11,10 @@ interface Question {
     answer: number;
 }
 
+interface RoomStatePayload {
+    state: 'LOBBY' | 'PLAYING' | 'FINISHED';
+}
+
 export default function Player() {
     const [searchParams] = useSearchParams();
     const roomId = searchParams.get('room');
@@ -33,8 +37,11 @@ export default function Player() {
         socket.connect();
         socket.emit('join_room', { roomId, playerName });
 
-        socket.on('joined', (data: { team: 'blue' | 'red' }) => {
+        socket.on('joined', (data: { team: 'blue' | 'red'; roomState?: 'LOBBY' | 'PLAYING' | 'FINISHED' }) => {
             setTeam(data.team);
+            if (data.roomState) {
+                setGameState(data.roomState);
+            }
         });
 
         socket.on('error', (err) => {
@@ -46,8 +53,31 @@ export default function Player() {
             navigate('/');
         });
 
-        socket.on('game_started', () => setGameState('PLAYING'));
-        socket.on('game_ended', () => setGameState('FINISHED'));
+        socket.on('room_closed', () => {
+            alert('A sala foi encerrada pelo host.');
+            navigate('/');
+        });
+
+        socket.on('room_state_update', (data: RoomStatePayload) => {
+            setGameState(data.state);
+            if (data.state !== 'PLAYING') {
+                setQuestion(null);
+                setFeedback(null);
+                setAnswerInput('');
+            }
+        });
+
+        socket.on('game_started', () => {
+            setGameState('PLAYING');
+            setFeedback(null);
+            setAnswerInput('');
+        });
+        socket.on('game_ended', () => {
+            setGameState('FINISHED');
+            setQuestion(null);
+            setFeedback(null);
+            setAnswerInput('');
+        });
 
         socket.on('new_question', (q: Question) => {
             setQuestion(q);
@@ -70,6 +100,8 @@ export default function Player() {
             socket.off('joined');
             socket.off('error');
             socket.off('connect_error');
+            socket.off('room_closed');
+            socket.off('room_state_update');
             socket.off('game_started');
             socket.off('game_ended');
             socket.off('new_question');
@@ -215,7 +247,7 @@ export default function Player() {
                 {gameState === 'FINISHED' && (
                     <div className="text-center">
                         <h2 className="mb-2 text-3xl md:text-4xl font-black">Fim de Jogo!</h2>
-                        <p className="text-slate-400 text-base md:text-lg">Veja a tela do host para o resultado.</p>
+                        <p className="text-slate-400 text-base md:text-lg">Aguarde o host iniciar a próxima rodada nesta mesma sala.</p>
                         <button
                             onClick={() => navigate('/')}
                             className="mt-5 rounded-full bg-slate-800 px-7 py-2.5 font-bold hover:bg-slate-700"

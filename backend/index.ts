@@ -50,6 +50,54 @@ interface GameRoom {
 }
 
 const rooms = new Map<string, GameRoom>();
+const GAME_DURATION_SECONDS = 60;
+const SCORE_LIMIT = 100;
+const ALLOWED_OPERATIONS = new Set(['+', '-', '*', '/']);
+
+function normalizeDifficulty(value: unknown) {
+    const parsed = typeof value === 'number' ? value : Number(value);
+    if (!Number.isFinite(parsed)) return 1;
+    return Math.min(3, Math.max(1, Math.floor(parsed)));
+}
+
+function sanitizeOperations(value: unknown) {
+    if (!Array.isArray(value)) return [] as string[];
+
+    const filtered = value.filter((item): item is string =>
+        typeof item === 'string' && ALLOWED_OPERATIONS.has(item)
+    );
+
+    return [...new Set(filtered)];
+}
+
+function canStartGame(room: GameRoom) {
+    return room.blueTeam.length > 0 && room.redTeam.length > 0;
+}
+
+function resetRound(room: GameRoom) {
+    room.state = 'PLAYING';
+    room.score = 0;
+    room.timeRemaining = GAME_DURATION_SECONDS;
+    room.currentQuestions.clear();
+    room.blueTeam.forEach((player) => {
+        player.score = 0;
+    });
+    room.redTeam.forEach((player) => {
+        player.score = 0;
+    });
+}
+
+function finishGame(room: GameRoom) {
+    if (room.timerInterval) {
+        clearInterval(room.timerInterval);
+        delete room.timerInterval;
+    }
+
+    room.state = 'FINISHED';
+    room.currentQuestions.clear();
+    io.to(room.id).emit('game_ended');
+    io.to(room.id).emit('room_state_update', serializeRoom(room));
+}
 
 function generateRoomId() {
     return Math.random().toString(36).substring(2, 8).toUpperCase();
@@ -120,21 +168,48 @@ function sendQuestionToPlayer(room: GameRoom, socketId: string) {
     io.to(socketId).emit('new_question', q);
 }
 
+function startGame(room: GameRoom) {
+    if (room.timerInterval) {
+        clearInterval(room.timerInterval);
+        delete room.timerInterval;
+    }
+
+    resetRound(room);
+    io.to(room.id).emit('game_started');
+    io.to(room.id).emit('room_state_update', serializeRoom(room));
+
+    const allPlayers = [...room.blueTeam, ...room.redTeam];
+    allPlayers.forEach((player) => {
+        sendQuestionToPlayer(room, player.socketId);
+    });
+
+    room.timerInterval = setInterval(() => {
+        room.timeRemaining -= 1;
+        io.to(room.id).emit('room_state_update', serializeRoom(room));
+
+        if (room.timeRemaining <= 0 || Math.abs(room.score) >= SCORE_LIMIT) {
+            finishGame(room);
+        }
+    }, 1000);
+}
+
 io.on('connection', (socket: Socket) => {
     console.log('User connected:', socket.id);
 
     socket.on('create_room', (config) => {
+        const safeDifficulty = normalizeDifficulty(config?.difficulty);
+        const safeOperations = sanitizeOperations(config?.operations);
         const roomId = generateRoomId();
         const newRoom: GameRoom = {
             id: roomId,
             hostId: socket.id,
             state: 'LOBBY',
-            difficulty: config.difficulty || 1,
-            operations: config.operations || ['+'],
+            difficulty: safeDifficulty,
+            operations: safeOperations.length > 0 ? safeOperations : ['+'],
             blueTeam: [],
             redTeam: [],
             score: 0,
-            timeRemaining: 60,
+            timeRemaining: GAME_DURATION_SECONDS,
             currentQuestions: new Map()
         };
         rooms.set(roomId, newRoom);
@@ -146,14 +221,19 @@ io.on('connection', (socket: Socket) => {
     socket.on('join_room', ({ roomId, playerName }) => {
         const room = rooms.get(roomId);
         if (!room) return socket.emit('error', 'Sala não encontrada');
-        if (room.state !== 'LOBBY') return socket.emit('error', 'O jogo já foi iniciado');
+        if (room.state === 'PLAYING') return socket.emit('error', 'O jogo já foi iniciado');
 
         const existingBluePlayer = room.blueTeam.find(p => p.socketId === socket.id);
         const existingRedPlayer = room.redTeam.find(p => p.socketId === socket.id);
         if (existingBluePlayer || existingRedPlayer) {
             const assignedTeam = existingBluePlayer ? 'blue' : 'red';
             socket.join(roomId);
-            socket.emit('joined', { roomId, team: assignedTeam, playerName: existingBluePlayer?.name || existingRedPlayer?.name });
+            socket.emit('joined', {
+                roomId,
+                team: assignedTeam,
+                playerName: existingBluePlayer?.name || existingRedPlayer?.name,
+                roomState: room.state,
+            });
             io.to(room.id).emit('room_state_update', serializeRoom(room));
             return;
         }
@@ -169,34 +249,46 @@ io.on('connection', (socket: Socket) => {
         }
 
         socket.join(roomId);
-        socket.emit('joined', { roomId, team: assignedTeam, playerName });
+        socket.emit('joined', { roomId, team: assignedTeam, playerName, roomState: room.state });
         io.to(room.id).emit('room_state_update', serializeRoom(room));
     });
 
     socket.on('start_game', (roomId) => {
         const room = rooms.get(roomId);
-        if (room && room.hostId === socket.id && room.state === 'LOBBY') {
-            room.state = 'PLAYING';
-            io.to(roomId).emit('game_started');
-
-            // Give everyone their first question
-            const allPlayers = [...room.blueTeam, ...room.redTeam];
-            allPlayers.forEach(p => {
-                sendQuestionToPlayer(room, p.socketId);
-            });
-
-            room.timerInterval = setInterval(() => {
-                room.timeRemaining -= 1;
-                io.to(roomId).emit('room_state_update', serializeRoom(room));
-
-                if (room.timeRemaining <= 0 || Math.abs(room.score) >= 100) {
-                    clearInterval(room.timerInterval);
-                    room.state = 'FINISHED';
-                    io.to(roomId).emit('game_ended');
-                    io.to(roomId).emit('room_state_update', serializeRoom(room));
-                }
-            }, 1000);
+        if (!room || room.hostId !== socket.id || room.state !== 'LOBBY') return;
+        if (!canStartGame(room)) {
+            socket.emit('error', 'É necessário no mínimo 1 jogador em cada time para iniciar.');
+            return;
         }
+
+        startGame(room);
+    });
+
+    socket.on('restart_game', (payload: { roomId: string; difficulty?: number; operations?: string[] }) => {
+        const room = rooms.get(payload?.roomId);
+        if (!room || room.hostId !== socket.id) return;
+        if (room.state !== 'FINISHED' && room.state !== 'LOBBY') return;
+
+        if (payload?.difficulty !== undefined) {
+            room.difficulty = normalizeDifficulty(payload.difficulty);
+        }
+
+        if (payload?.operations !== undefined) {
+            const nextOperations = sanitizeOperations(payload.operations);
+            if (nextOperations.length === 0) {
+                socket.emit('error', 'Selecione pelo menos uma operação para reiniciar.');
+                return;
+            }
+            room.operations = nextOperations;
+        }
+
+        if (!canStartGame(room)) {
+            socket.emit('error', 'É necessário no mínimo 1 jogador em cada time para reiniciar.');
+            io.to(room.id).emit('room_state_update', serializeRoom(room));
+            return;
+        }
+
+        startGame(room);
     });
 
     socket.on('submit_answer', ({ roomId, questionId, answer }) => {
