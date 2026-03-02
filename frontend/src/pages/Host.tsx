@@ -3,7 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import { QRCodeSVG } from 'qrcode.react';
 import { socket } from '../utils/socket';
 import { motion, AnimatePresence } from 'framer-motion';
-import { Settings, Play, Users, Link as LinkIcon, AlertCircle, Trophy, Clock3, RotateCcw } from 'lucide-react';
+import { Settings, Play, Users, Link as LinkIcon, AlertCircle, Trophy, Clock3, RotateCcw, SlidersHorizontal, ChevronDown, ChevronUp } from 'lucide-react';
 import SchoolBrand from '../components/SchoolBrand';
 
 interface Player {
@@ -118,6 +118,7 @@ export default function Host() {
     const [operations, setOperations] = useState<string[]>(['+']);
     const [rematchDifficulty, setRematchDifficulty] = useState(1);
     const [rematchOperations, setRematchOperations] = useState<string[]>(['+']);
+    const [showLobbyFilters, setShowLobbyFilters] = useState(false);
     const navigate = useNavigate();
     const [error, setError] = useState('');
     const previousRoomStateRef = useRef<RoomState['state'] | null>(null);
@@ -133,6 +134,7 @@ export default function Host() {
             if (data.state === 'LOBBY' && previousRoomStateRef.current !== 'LOBBY') {
                 setRematchDifficulty(data.difficulty);
                 setRematchOperations(data.operations);
+                setShowLobbyFilters(false);
             }
 
             previousRoomStateRef.current = data.state;
@@ -280,7 +282,7 @@ export default function Host() {
 
     if (room.state === 'LOBBY') {
         return (
-            <div className="mx-auto flex h-[100dvh] max-w-7xl flex-col overflow-hidden p-3 md:p-4">
+            <div className="mx-auto flex h-[100dvh] max-w-7xl flex-col overflow-y-auto p-3 md:p-4">
                 <header className="mb-4 flex flex-wrap items-center justify-between gap-3 md:mb-5">
                     <div className="flex items-center gap-4">
                         <SchoolBrand mode="white-on-dark" compact />
@@ -312,59 +314,72 @@ export default function Host() {
                         Para iniciar, é obrigatório ter pelo menos 1 jogador no Time Azul e 1 no Time Vermelho.
                     </p>
                 )}
-                <div className="mb-3 rounded-xl border border-cyan-500/35 bg-cyan-500/10 px-3 py-2 text-sm font-medium text-cyan-100">
-                    Filtros atuais: Nível {room.difficulty} | Operações {operationsPreview}
-                </div>
-                <div className="mb-3 rounded-xl border border-slate-700 bg-slate-900/70 p-3 md:p-4">
-                    <p className="mb-2 text-xs font-black uppercase tracking-wider text-slate-400">Ajustar Filtros Antes de Iniciar</p>
-
-                    <div className="mb-3">
-                        <p className="mb-2 text-xs font-semibold text-slate-300">Operações</p>
-                        <div className="grid grid-cols-4 gap-2">
-                            {OPERATION_OPTIONS.map(({ op, label }) => (
-                                <button
-                                    key={`lobby-filter-${op}`}
-                                    type="button"
-                                    onClick={() => setRematchOperations((current) => toggleOperation(current, op))}
-                                    title={label}
-                                    className={`rounded-lg border py-1.5 text-lg font-bold transition ${rematchOperations.includes(op)
-                                        ? 'border-cyan-300 bg-cyan-500 text-slate-950'
-                                        : 'border-slate-600 bg-slate-900 text-slate-300 hover:bg-slate-700'
-                                        }`}
-                                >
-                                    {op}
-                                </button>
-                            ))}
-                        </div>
+                <div className="mb-3 rounded-xl border border-cyan-500/35 bg-cyan-500/10 px-3 py-2.5 text-sm font-medium text-cyan-100">
+                    <div className="flex flex-wrap items-center justify-between gap-2">
+                        <p>Filtros atuais: Nível {room.difficulty} | Operações {operationsPreview}</p>
+                        <button
+                            type="button"
+                            onClick={() => setShowLobbyFilters((prev) => !prev)}
+                            className="inline-flex items-center gap-2 rounded-lg border border-cyan-300/60 bg-slate-900/45 px-3 py-1.5 text-xs font-black uppercase tracking-wide text-cyan-100 transition hover:bg-slate-800/70"
+                        >
+                            <SlidersHorizontal size={14} />
+                            Editar filtros
+                            {showLobbyFilters ? <ChevronUp size={14} /> : <ChevronDown size={14} />}
+                        </button>
                     </div>
+                    {showLobbyFilters && (
+                        <div className="mt-3 rounded-xl border border-slate-700 bg-slate-900/70 p-3 md:p-4">
+                            <p className="mb-2 text-xs font-black uppercase tracking-wider text-slate-400">Ajustar Filtros Antes de Iniciar</p>
 
-                    <div className="mb-3">
-                        <p className="mb-2 text-xs font-semibold text-slate-300">Nível (dígitos)</p>
-                        <div className="grid grid-cols-3 gap-2">
-                            {[1, 2, 3].map((level) => (
-                                <button
-                                    key={`lobby-level-${level}`}
-                                    type="button"
-                                    onClick={() => setRematchDifficulty(level)}
-                                    className={`rounded-lg border px-3 py-1.5 text-sm font-bold transition ${rematchDifficulty === level
-                                        ? 'border-cyan-300 bg-cyan-500 text-slate-950'
-                                        : 'border-slate-600 bg-slate-900 text-slate-300 hover:bg-slate-700'
-                                        }`}
-                                >
-                                    Nível {level}
-                                </button>
-                            ))}
+                            <div className="mb-3">
+                                <p className="mb-2 text-xs font-semibold text-slate-300">Operações</p>
+                                <div className="grid grid-cols-2 gap-2 sm:grid-cols-4">
+                                    {OPERATION_OPTIONS.map(({ op, label }) => (
+                                        <button
+                                            key={`lobby-filter-${op}`}
+                                            type="button"
+                                            onClick={() => setRematchOperations((current) => toggleOperation(current, op))}
+                                            title={label}
+                                            className={`rounded-lg border py-1.5 text-lg font-bold transition ${rematchOperations.includes(op)
+                                                ? 'border-cyan-300 bg-cyan-500 text-slate-950'
+                                                : 'border-slate-600 bg-slate-900 text-slate-300 hover:bg-slate-700'
+                                                }`}
+                                        >
+                                            {op}
+                                        </button>
+                                    ))}
+                                </div>
+                            </div>
+
+                            <div className="mb-3">
+                                <p className="mb-2 text-xs font-semibold text-slate-300">Nível (dígitos)</p>
+                                <div className="grid grid-cols-3 gap-2">
+                                    {[1, 2, 3].map((level) => (
+                                        <button
+                                            key={`lobby-level-${level}`}
+                                            type="button"
+                                            onClick={() => setRematchDifficulty(level)}
+                                            className={`rounded-lg border px-3 py-1.5 text-sm font-bold transition ${rematchDifficulty === level
+                                                ? 'border-cyan-300 bg-cyan-500 text-slate-950'
+                                                : 'border-slate-600 bg-slate-900 text-slate-300 hover:bg-slate-700'
+                                                }`}
+                                        >
+                                            Nível {level}
+                                        </button>
+                                    ))}
+                                </div>
+                            </div>
+
+                            <button
+                                type="button"
+                                onClick={restartWithCustomFilters}
+                                disabled={rematchOperations.length === 0 || !hasPendingFilterChanges}
+                                className="w-full rounded-xl border border-cyan-400/70 bg-transparent px-4 py-2.5 text-xs font-black uppercase tracking-wide text-cyan-200 transition hover:bg-cyan-500/15 disabled:border-slate-700 disabled:text-slate-500 md:text-sm"
+                            >
+                                Salvar filtros para próxima partida
+                            </button>
                         </div>
-                    </div>
-
-                    <button
-                        type="button"
-                        onClick={restartWithCustomFilters}
-                        disabled={rematchOperations.length === 0 || !hasPendingFilterChanges}
-                        className="w-full rounded-xl border border-cyan-400/70 bg-transparent px-4 py-2.5 text-xs font-black uppercase tracking-wide text-cyan-200 transition hover:bg-cyan-500/15 disabled:border-slate-700 disabled:text-slate-500 md:text-sm"
-                    >
-                        Salvar filtros para próxima partida
-                    </button>
+                    )}
                 </div>
 
                 <div className="grid min-h-0 flex-1 gap-4 md:grid-cols-[minmax(290px,1fr)_2fr] md:gap-5">
@@ -372,13 +387,13 @@ export default function Host() {
                     <motion.div
                         initial={{ opacity: 0, x: -20 }}
                         animate={{ opacity: 1, x: 0 }}
-                        className="h-fit bg-white p-5 md:p-6 rounded-3xl shadow-xl flex flex-col items-center justify-center text-slate-800"
+                        className="h-fit bg-white p-4 md:p-5 rounded-3xl shadow-xl flex flex-col items-center justify-center text-slate-800"
                     >
                         <h2 className="text-2xl font-bold mb-2">Entre para Jogar!</h2>
                         <p className="text-slate-500 mb-5 md:mb-6 font-medium">Escaneie o QR ou digite o PIN</p>
 
-                        <div className="bg-slate-100 p-3 md:p-4 rounded-2xl mb-5 md:mb-6">
-                            <QRCodeSVG value={joinUrl} size={160} />
+                        <div className="bg-slate-100 p-3 rounded-2xl mb-4 md:mb-5">
+                            <QRCodeSVG value={joinUrl} size={136} />
                         </div>
 
                         <div className="text-center w-full">
